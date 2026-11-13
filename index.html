@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Petualangan Angka: Penjumlahan hingga 10.000</title>
+    <!-- Memuat Tailwind CSS untuk styling responsif -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Memuat Tone.js untuk efek suara interaktif tanpa file eksternal -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Memuat Google Fonts yang ramah anak (Fredoka & Nunito) -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Pengaturan Font Utama */
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+            user-select: none;
+        }
+
+        h1, h2, h3, .font-display {
+            font-family: 'Fredoka', sans-serif;
+        }
+
+        /* Animasi Latar Belakang Bintang Berkelip */
+        .star {
+            position: fixed;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle var(--duration) infinite ease-in-out;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.2; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+
+        /* Animasi Melayang untuk Maskot Roket */
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(3deg); }
+        }
+
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        /* Animasi Getar saat Jawaban Salah */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+
+        .animate-shake {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        /* Animasi Memantul saat Jawaban Benar */
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.08); }
+            100% { transform: scale(1); }
+        }
+
+        .animate-pop {
+            animation: pop 0.3s ease-out;
+        }
+
+        /* Styling Tombol 3D Ramah Anak */
+        .btn-3d {
+            transition: all 0.15s ease;
+            box-shadow: 0 6px 0 rgba(0, 0, 0, 0.25);
+        }
+
+        .btn-3d:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
+        }
+
+        /* Kertas Coret-coretan Susun Ke Bawah */
+        .scratchpad-grid {
+            background-image: linear-gradient(#e2e8f0 1px, transparent 1px), linear-gradient(90deg, #e2e8f0 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+    </style>
+</head>
+<body class="text-slate-800 flex items-center justify-center p-3 sm:p-6 relative">
+
+    <!-- Container Bintang Latar Belakang -->
+    <div id="stars-container"></div>
+
+    <!-- Container Konfeti (Efek Kemenangan) -->
+    <canvas id="confetti-canvas" class="fixed inset-0 pointer-events-none z-50 w-full h-full"></canvas>
+
+    <!-- KARTU UTAMA APLIKASI -->
+    <main class="relative z-10 w-full max-w-2xl bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl border-4 border-indigo-300 overflow-hidden">
+        
+        <!-- Header Atas: Judul & Tombol Suara -->
+        <header class="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 p-4 sm:p-5 text-white flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="bg-white/20 p-2 rounded-2xl text-2xl sm:text-3xl animate-float">🚀</div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-bold tracking-wide">Misi Penjumlahan</h1>
+                    <p class="text-xs sm:text-sm text-indigo-100 font-semibold">Kelas 4 SD • Angka hingga 10.000</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <!-- Tombol Toggle Suara -->
+                <button id="btn-sound" onclick="toggleSound()" class="p-2.5 bg-white/20 hover:bg-white/30 rounded-xl transition text-xl" title="Matikan/Nyalakan Suara">
+                    🔊
+                </button>
+                <!-- Tombol Kembali ke Menu (Muncul saat kuis berjalan) -->
+                <button id="btn-home" onclick="confirmExit()" class="hidden px-3 py-2 bg-rose-500 hover:bg-rose-600 rounded-xl font-bold text-xs sm:text-sm shadow transition">
+                    Menu
+                </button>
+            </div>
+        </header>
+
+        <!-- ========================================== -->
+        <!-- LAYAR 1: PENGATURAN AWAL (SETUP SCREEN)    -->
+        <!-- ========================================== -->
+        <section id="screen-setup" class="p-6 sm:p-8 space-y-6">
+            <div class="text-center space-y-2">
+                <span class="inline-block px-4 py-1 bg-amber-100 text-amber-800 rounded-full text-sm font-bold">
+                    🌟 Halo Astronaut Cilik!
+                </span>
+                <h2 class="text-2xl sm:text-3xl font-bold text-indigo-950">Siap Berlatih Berhitung?</h2>
+                <p class="text-slate-600 text-sm sm:text-base">Pilih jumlah soal dan tingkat kesulitannya dulu ya!</p>
+            </div>
+
+            <!-- Pilihan Jumlah Soal -->
+            <div class="space-y-3">
+                <label class="block font-bold text-indigo-900 text-base sm:text-lg">
+                    1. Mau berapa soal latihan?
+                </label>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3" id="question-count-options">
+                    <button type="button" onclick="selectCount(5, this)" class="count-btn btn-3d p-3 rounded-2xl border-2 border-indigo-200 bg-indigo-50 text-indigo-900 font-bold text-base sm:text-lg hover:bg-indigo-100">
+                        5 Soal
+                    </button>
+                    <button type="button" onclick="selectCount(10, this)" class="count-btn btn-3d p-3 rounded-2xl border-2 border-indigo-600 bg-indigo-600 text-white font-bold text-base sm:text-lg selected-option">
+                        10 Soal ⭐
+                    </button>
+                    <button type="button" onclick="selectCount(20, this)" class="count-btn btn-3d p-3 rounded-2xl border-2 border-indigo-200 bg-indigo-50 text-indigo-900 font-bold text-base sm:text-lg hover:bg-indigo-100">
+                        20 Soal
+                    </button>
+                    <button type="button" onclick="selectCount(50, this)" class="count-btn btn-3d p-3 rounded-2xl border-2 border-indigo-200 bg-indigo-50 text-indigo-900 font-bold text-base sm:text-lg hover:bg-indigo-100">
+                        50 Soal
+                    </button>
+                    <button type="button" onclick="selectCount(Infinity, this)" class="count-btn btn-3d p-3 rounded-2xl border-2 border-purple-300 bg-purple-100 text-purple-900 font-bold text-base sm:text-lg hover:bg-purple-200 col-span-2 sm:col-span-2">
+                        ♾️ Tanpa Batas (Tak Hingga)
+                    </button>
+                </div>
+
+                <!-- Input Kustom Jumlah Soal -->
+                <div class="pt-2 flex items-center gap-3">
+                    <span class="text-sm font-bold text-slate-600">Atau ketik sendiri:</span>
+                    <input type="number" id="custom-count" min="1" max="9999" placeholder="Misal: 15" 
+                           oninput="handleCustomCount(this.value)"
+                           class="w-32 px-3 py-2 border-2 border-slate-300 rounded-xl font-bold text-center focus:outline-none focus:border-indigo-500">
+                    <span class="text-sm font-bold text-slate-600">soal</span>
+                </div>
+            </div>
+
+            <!-- Pilihan Tingkat Kesulitan -->
+            <div class="space-y-3">
+                <label class="block font-bold text-indigo-900 text-base sm:text-lg">
+                    2. Pilih Level Petualangan:
+                </label>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <button type="button" onclick="selectLevel('easy', this)" class="level-btn btn-3d p-3 rounded-2xl border-2 border-emerald-200 bg-emerald-50 text-emerald-900 text-left hover:bg-emerald-100">
+                        <div class="font-bold text-base">🌱 Pemanasan</div>
+                        <div class="text-xs text-emerald-700">Angka 100 - 2.000</div>
+                    </button>
+                    <button type="button" onclick="selectLevel('medium', this)" class="level-btn btn-3d p-3 rounded-2xl border-2 border-amber-500 bg-amber-500 text-white text-left">
+                        <div class="font-bold text-base">🚀 Petualang</div>
+                        <div class="text-xs text-amber-100">Angka hingga 5.000</div>
+                    </button>
+                    <button type="button" onclick="selectLevel('hard', this)" class="level-btn btn-3d p-3 rounded-2xl border-2 border-rose-200 bg-rose-50 text-rose-900 text-left hover:bg-rose-100">
+                        <div class="font-bold text-base">👑 Juara Kelas 4</div>
+                        <div class="text-xs text-rose-700">Campuran hingga 10.000</div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Pilihan Mode Jawaban -->
+            <div class="space-y-3">
+                <label class="block font-bold text-indigo-900 text-base sm:text-lg">
+                    3. Cara Menjawab:
+                </label>
+                <div class="grid grid-cols-2 gap-3">
+                    <button type="button" onclick="selectMode('choice', this)" class="mode-btn btn-3d p-3 rounded-2xl border-2 border-sky-500 bg-sky-500 text-white font-bold text-sm sm:text-base">
+                        🎯 Pilihan Ganda (4 Opsi)
+                    </button>
+                    <button type="button" onclick="selectMode('type', this)" class="mode-btn btn-3d p-3 rounded-2xl border-2 border-sky-200 bg-sky-50 text-sky-900 font-bold text-sm sm:text-base hover:bg-sky-100">
+                        ⌨️ Ketik Jawaban Sendiri
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tombol Mulai -->
+            <div class="pt-4">
+                <button onclick="startQuiz()" class="btn-3d w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-display font-bold text-xl sm:text-2xl rounded-2xl shadow-lg flex items-center justify-center gap-3">
+                    <span>MULAI BERMAIN!</span>
+                    <span>🎮</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- LAYAR 2: AREA KUIS (QUIZ SCREEN)           -->
+        <!-- ========================================== -->
+        <section id="screen-quiz" class="hidden p-5 sm:p-8 space-y-6">
+            
+            <!-- Baris Status: Progres, Skor, dan Streak -->
+            <div class="flex flex-wrap items-center justify-between gap-2 bg-indigo-50 p-3 sm:p-4 rounded-2xl border-2 border-indigo-100">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">📝</span>
+                    <div>
+                        <div class="text-xs text-slate-500 font-bold uppercase">Soal</div>
+                        <div id="quiz-progress" class="font-display font-bold text-indigo-950 text-base sm:text-lg">1 / 10</div>
+                    </div>
+                </div>
+
+                <!-- Streak / Beruntun -->
+                <div id="streak-badge" class="hidden items-center gap-1.5 bg-amber-100 text-amber-800 px-3 py-1.5 rounded-xl font-bold text-sm border border-amber-300 animate-bounce">
+                    <span>🔥</span>
+                    <span id="streak-count">3x Beruntun!</span>
+                </div>
+
+                <div class="flex items-center gap-4">
+                    <div class="text-right">
+                        <div class="text-xs text-slate-500 font-bold uppercase">Benar</div>
+                        <div id="quiz-score" class="font-display font-bold text-emerald-600 text-base sm:text-lg">0 ⭐</div>
+                    </div>
+                    <!-- Tombol Selesai Khusus Mode Tanpa Batas -->
+                    <button id="btn-finish-infinite" onclick="endQuiz()" class="hidden px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs sm:text-sm shadow">
+                        Selesai & Lihat Nilai
+                    </button>
+                </div>
+            </div>
+
+            <!-- Progress Bar Visual (Sembunyi jika Infinite) -->
+            <div id="progress-bar-container" class="w-full bg-slate-200 h-3 rounded-full overflow-hidden">
+                <div id="progress-bar" class="bg-gradient-to-r from-indigo-500 to-pink-500 h-full transition-all duration-300" style="width: 10%"></div>
+            </div>
+
+            <!-- Kotak Soal Utama -->
+            <div id="question-box" class="bg-gradient-to-b from-slate-50 to-indigo-50/50 border-2 border-indigo-200 rounded-3xl p-6 text-center relative">
+                
+                <!-- Tombol Bantuan Susun Ke Bawah -->
+                <button onclick="toggleScratchpad()" class="absolute top-3 right-3 px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-xl text-xs font-bold flex items-center gap-1 transition">
+                    <span>💡</span>
+                    <span id="scratchpad-btn-text">Cara Susun</span>
+                </button>
+
+                <p class="text-sm font-bold text-indigo-500 mb-2 mt-4 sm:mt-0">Berapakah hasil penjumlahan ini?</p>
+                
+                <!-- Angka Soal -->
+                <div class="font-display font-bold text-3xl sm:text-5xl text-indigo-950 tracking-wider my-3 flex items-center justify-center gap-3 sm:gap-5">
+                    <span id="num1">2.450</span>
+                    <span class="text-pink-500">+</span>
+                    <span id="num2">1.325</span>
+                    <span class="text-indigo-400">=</span>
+                    <span class="text-amber-500">?</span>
+                </div>
+
+                <!-- Kertas Bantuan Susun Ke Bawah (Tersembunyi secara default) -->
+                <div id="scratchpad-box" class="hidden mt-4 pt-4 border-t-2 border-dashed border-indigo-200">
+                    <div class="inline-block scratchpad-grid bg-white p-4 rounded-2xl border-2 border-slate-300 shadow-inner text-right font-mono text-xl sm:text-2xl font-bold text-slate-700">
+                        <div class="text-xs text-slate-400 font-sans text-center mb-1">Susun ke bawah (Ribuan - Ratusan - Puluhan - Satuan)</div>
+                        <div id="pad-num1" class="tracking-widest pr-2">2.450</div>
+                        <div class="border-b-2 border-slate-800 pb-1 flex justify-between items-center gap-4">
+                            <span class="text-pink-600 font-bold">+</span>
+                            <span id="pad-num2" class="tracking-widest pr-2">1.325</span>
+                        </div>
+                        <div class="text-indigo-400 text-sm pt-1 pr-2">.......</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Area Jawaban: Pilihan Ganda -->
+            <div id="answers-choice-container" class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <!-- Tombol opsi akan di-generate lewat JavaScript -->
+            </div>
+
+            <!-- Area Jawaban: Ketik Langsung -->
+            <div id="answers-type-container" class="hidden space-y-4">
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <input type="text" id="type-answer-input" inputmode="numeric" placeholder="Ketik jawabanmu di sini..." 
+                           onkeyup="formatInputNumber(this)"
+                           onkeydown="if(event.key === 'Enter') checkTypedAnswer()"
+                           class="flex-1 text-center font-display font-bold text-2xl sm:text-3xl py-4 px-4 border-4 border-indigo-300 rounded-2xl focus:outline-none focus:border-indigo-600 text-indigo-950">
+                    <button id="btn-submit-type" onclick="checkTypedAnswer()" class="btn-3d px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-display font-bold text-xl rounded-2xl">
+                        Jawab ✓
+                    </button>
+                </div>
+            </div>
+
+            <!-- Umpan Balik (Feedback Banner) -->
+            <div id="feedback-banner" class="hidden p-4 rounded-2xl text-center font-bold text-base sm:text-lg transition-all">
+                <!-- Pesan Benar / Salah muncul di sini -->
+            </div>
+
+        </section>
+
+        <!-- ========================================== -->
+        <!-- LAYAR 3: HASIL AKHIR (RESULT SCREEN)       -->
+        <!-- ========================================== -->
+        <section id="screen-result" class="hidden p-6 sm:p-8 text-center space-y-6">
+            <div class="text-6xl sm:text-7xl animate-bounce" id="result-emoji">🏆</div>
+            
+            <div class="space-y-1">
+                <h2 class="font-display font-bold text-2xl sm:text-3xl text-indigo-950" id="result-title">Luar Biasa!</h2>
+                <p class="text-slate-600 font-semibold" id="result-subtitle">Kamu telah menyelesaikan misi penjumlahan!</p>
+            </div>
+
+            <!-- Kartu Statistik Nilai -->
+            <div class="grid grid-cols-3 gap-3 bg-indigo-50 p-4 rounded-3xl border-2 border-indigo-100">
+                <div class="bg-white p-3 rounded-2xl shadow-sm">
+                    <div class="text-xs font-bold text-slate-400 uppercase">Total Soal</div>
+                    <div id="stat-total" class="font-display font-bold text-xl sm:text-2xl text-indigo-900">10</div>
+                </div>
+                <div class="bg-white p-3 rounded-2xl shadow-sm">
+                    <div class="text-xs font-bold text-slate-400 uppercase">Benar</div>
+                    <div id="stat-correct" class="font-display font-bold text-xl sm:text-2xl text-emerald-600">8</div>
+                </div>
+                <div class="bg-white p-3 rounded-2xl shadow-sm">
+                    <div class="text-xs font-bold text-slate-400 uppercase">Nilai</div>
+                    <div id="stat-score" class="font-display font-bold text-xl sm:text-2xl text-amber-500">80</div>
+                </div>
+            </div>
+
+            <!-- Tombol Aksi -->
+            <div class="flex flex-col sm:flex-row gap-3 pt-2">
+                <button onclick="restartSameSettings()" class="btn-3d flex-1 py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-display font-bold text-lg rounded-2xl">
+                    🔄 Main Lagi
+                </button>
+                <button onclick="goToSetup()" class="btn-3d flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-display font-bold text-lg rounded-2xl">
+                    ⚙️ Ubah Pengaturan
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MODAL KONFIRMASI KELUAR (Pengganti confirm() bawaan browser) -->
+    <div id="exit-modal" class="hidden fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 max-w-sm w-full text-center space-y-4 shadow-2xl border-4 border-indigo-200 animate-pop">
+            <div class="text-5xl">🛸</div>
+            <h3 class="font-display font-bold text-xl text-indigo-950">Yakin mau keluar?</h3>
+            <p class="text-slate-600 text-sm">Progres kuis saat ini akan berhenti jika kamu kembali ke menu utama.</p>
+            <div class="flex gap-3 pt-2">
+                <button onclick="closeExitModal()" class="flex-1 py-3 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded-xl">
+                    Lanjut Main
+                </button>
+                <button onclick="goToSetup()" class="flex-1 py-3 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-xl">
+                    Ya, Keluar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ==========================================================================
+           1. STATE & VARIABEL GLOBAL APLIKASI
+           ========================================================================== */
+        const state = {
+            totalQuestions: 10,      // Default 10 soal (bisa angka atau Infinity)
+            level: 'medium',         // 'easy' (<=2000), 'medium' (<=5000), 'hard' (<=10000)
+            mode: 'choice',          // 'choice' (pilihan ganda) atau 'type' (ketik)
+            currentQuestionIndex: 0, // Soal ke-berapa saat ini
+            correctCount: 0,         // Jumlah jawaban benar
+            streak: 0,               // Jawaban benar beruntun
+            currentNum1: 0,
+            currentNum2: 0,
+            currentAnswer: 0,
+            isAnswered: false,       // Mencegah klik ganda saat transisi soal
+            soundEnabled: true       // Status audio
+        };
+
+        /* Pesan pujian acak agar anak termotivasi */
+        const praiseMessages = [
+            "Hebat sekali! Jawabanmu tepat! 🌟",
+            "Pintar! Kamu jago berhitung! 🚀",
+            "Luar biasa! Teruskan ya! 🎉",
+            "Keren abis! 100% Benar! ⭐",
+            "Mantap! Astronaut cerdas! 👨‍🚀"
+        ];
+
+        /* ==========================================================================
+           2. SISTEM AUDIO INTERAKTIF (MENGGUNAKAN TONE.JS)
+           ========================================================================== */
+        let synth = null;
+
+        function initAudio() {
+            if (!synth && window.Tone) {
+                synth = new Tone.PolySynth(Tone.Synth).toDestination();
+                synth.volume.value = -8;
+            }
+        }
+
+        function playSound(type) {
+            if (!state.soundEnabled) return;
+            try {
+                initAudio();
+                if (Tone.context.state !== 'running') {
+                    Tone.start();
+                }
+
+                const now = Tone.now();
+                if (type === 'click') {
+                    synth.triggerAttackRelease("C5", "32n", now);
+                } else if (type === 'correct') {
+                    // Nada ceria naik (C5 - E5 - G5)
+                    synth.triggerAttackRelease("C5", "16n", now);
+                    synth.triggerAttackRelease("E5", "16n", now + 0.08);
+                    synth.triggerAttackRelease("G5", "8n", now + 0.16);
+                } else if (type === 'wrong') {
+                    // Nada lembut turun (E4 - C4)
+                    synth.triggerAttackRelease("E4", "16n", now);
+                    synth.triggerAttackRelease("C4", "8n", now + 0.12);
+                } else if (type === 'win') {
+                    // Fanfare kemenangan
+                    synth.triggerAttackRelease("C5", "16n", now);
+                    synth.triggerAttackRelease("E5", "16n", now + 0.1);
+                    synth.triggerAttackRelease("G5", "16n", now + 0.2);
+                    synth.triggerAttackRelease("C6", "4n", now + 0.3);
+                }
+            } catch (e) {
+                console.warn("Audio belum siap:", e);
+            }
+        }
+
+        function toggleSound() {
+            state.soundEnabled = !state.soundEnabled;
+            const btn = document.getElementById('btn-sound');
+            btn.textContent = state.soundEnabled ? '🔊' : '🔇';
+            if (state.soundEnabled) playSound('click');
+        }
+
+        /* ==========================================================================
+           3. EFEK VISUAL (BINTANG LATAR & KONFETI)
+           ========================================================================== */
+        function createStars() {
+            const container = document.getElementById('stars-container');
+            for (let i = 0; i < 35; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                const size = Math.random() * 4 + 2;
+                star.style.width = `${size}px`;
+                star.style.height = `${size}px`;
+                star.style.left = `${Math.random() * 100}vw`;
+                star.style.top = `${Math.random() * 100}vh`;
+                star.style.setProperty('--duration', `${Math.random() * 3 + 2}s`);
+                container.appendChild(star);
+            }
+        }
+
+        function launchConfetti() {
+            const canvas = document.getElementById('confetti-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const pieces = [];
+            const colors = ['#f43f5e', '#fbbf24', '#34d399', '#38bdf8', '#a855f7'];
+
+            for (let i = 0; i < 90; i++) {
+                pieces.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height - canvas.height,
+                    w: Math.random() * 10 + 6,
+                    h: Math.random() * 6 + 4,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    vy: Math.random() * 4 + 2,
+                    vx: Math.random() * 2 - 1,
+                    angle: Math.random() * 360
+                });
+            }
+
+            let frame = 0;
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                pieces.forEach(p => {
+                    p.y += p.vy;
+                    p.x += p.vx;
+                    p.angle += 4;
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate((p.angle * Math.PI) / 180);
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+                    ctx.restore();
+                });
+
+                frame++;
+                if (frame < 160) {
+                    requestAnimationFrame(animate);
+                } else {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                }
+            }
+            animate();
+        }
+
+        /* ==========================================================================
+           4. LOGIKA PENGATURAN AWAL (SETUP)
+           ========================================================================== */
+        function selectCount(count, btnElement) {
+            playSound('click');
+            state.totalQuestions = count;
+            document.getElementById('custom-count').value = '';
+
+            // Reset styling semua tombol jumlah
+            document.querySelectorAll('.count-btn').forEach(btn => {
+                btn.classList.remove('border-indigo-600', 'bg-indigo-600', 'text-white');
+                if (btn.textContent.includes('Tanpa Batas')) {
+                    btn.classList.add('border-purple-300', 'bg-purple-100', 'text-purple-900');
+                } else {
+                    btn.classList.add('border-indigo-200', 'bg-indigo-50', 'text-indigo-900');
+                }
+            });
+
+            // Aktifkan styling tombol yang dipilih
+            btnElement.classList.remove('border-indigo-200', 'bg-indigo-50', 'text-indigo-900', 'border-purple-300', 'bg-purple-100', 'text-purple-900');
+            btnElement.classList.add('border-indigo-600', 'bg-indigo-600', 'text-white');
+        }
+
+        function handleCustomCount(val) {
+            const num = parseInt(val);
+            if (num && num > 0) {
+                state.totalQuestions = num;
+                // Hapus highlight dari tombol preset
+                document.querySelectorAll('.count-btn').forEach(btn => {
+                    btn.classList.remove('border-indigo-600', 'bg-indigo-600', 'text-white');
+                    if (btn.textContent.includes('Tanpa Batas')) {
+                        btn.classList.add('border-purple-300', 'bg-purple-100', 'text-purple-900');
+                    } else {
+                        btn.classList.add('border-indigo-200', 'bg-indigo-50', 'text-indigo-900');
+                    }
+                });
+            }
+        }
+
+        function selectLevel(level, btnElement) {
+            playSound('click');
+            state.level = level;
+
+            const styles = {
+                easy: ['border-emerald-200', 'bg-emerald-50', 'text-emerald-900'],
+                medium: ['border-amber-200', 'bg-amber-50', 'text-amber-900'],
+                hard: ['border-rose-200', 'bg-rose-50', 'text-rose-900']
+            };
+
+            const activeStyles = {
+                easy: ['border-emerald-600', 'bg-emerald-600', 'text-white'],
+                medium: ['border-amber-500', 'bg-amber-500', 'text-white'],
+                hard: ['border-rose-600', 'bg-rose-600', 'text-white']
+            };
+
+            document.querySelectorAll('.level-btn').forEach((btn, idx) => {
+                const lvlKey = ['easy', 'medium', 'hard'][idx];
+                btn.classList.remove(...activeStyles[lvlKey]);
+                btn.classList.add(...styles[lvlKey]);
+                btn.querySelector('div:nth-child(2)').classList.remove('text-white/90');
+            });
+
+            btnElement.classList.remove(...styles[level]);
+            btnElement.classList.add(...activeStyles[level]);
+            btnElement.querySelector('div:nth-child(2)').classList.add('text-white/90');
+        }
+
+        function selectMode(mode, btnElement) {
+            playSound('click');
+            state.mode = mode;
+
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.remove('border-sky-500', 'bg-sky-500', 'text-white');
+                btn.classList.add('border-sky-200', 'bg-sky-50', 'text-sky-900');
+            });
+
+            btnElement.classList.remove('border-sky-200', 'bg-sky-50', 'text-sky-900');
+            btnElement.classList.add('border-sky-500', 'bg-sky-500', 'text-white');
+        }
+
+        /* ==========================================================================
+           5. GENERATOR SOAL ACAK HINGGA 10.000 (SESUAI KURIKULUM KELAS 4 SD)
+           ========================================================================== */
+        function formatNumber(num) {
+            // Format angka standar Indonesia dengan titik ribuan (contoh: 4.520)
+            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        }
+
+        function generateQuestion() {
+            let maxSum = 10000;
+            let minNum = 100;
+
+            if (state.level === 'easy') {
+                maxSum = 2000;
+                minNum = 100;
+            } else if (state.level === 'medium') {
+                maxSum = 5000;
+                minNum = 500;
+            } else {
+                maxSum = 10000;
+                minNum = 1000;
+            }
+
+            // Pastikan hasil penjumlahan tidak pernah melebihi batas maksimal (maks 10.000)
+            const targetSum = Math.floor(Math.random() * (maxSum - minNum * 2)) + (minNum * 2);
+            const num1 = Math.floor(Math.random() * (targetSum - minNum - minNum + 1)) + minNum;
+            const num2 = targetSum - num1;
+
+            state.currentNum1 = num1;
+            state.currentNum2 = num2;
+            state.currentAnswer = targetSum;
+        }
+
+        /* Membuat 3 pengecoh (distractor) yang cerdas dan masuk akal untuk anak SD */
+        function generateChoices(correctAnswer) {
+            const choices = new Set([correctAnswer]);
+
+            while (choices.size < 4) {
+                const variationType = Math.floor(Math.random() * 4);
+                let wrong = correctAnswer;
+
+                if (variationType === 0) {
+                    // Kesalahan menyimpan puluhan/ratusan (selisih 10 atau 100)
+                    const diff = (Math.random() > 0.5 ? 1 : -1) * (Math.random() > 0.5 ? 100 : 10);
+                    wrong = correctAnswer + diff;
+                } else if (variationType === 1) {
+                    // Kesalahan ribuan (selisih 1.000)
+                    const diff = (Math.random() > 0.5 ? 1 : -1) * 1000;
+                    wrong = correctAnswer + diff;
+                } else if (variationType === 2) {
+                    // Selisih kecil (1 sampai 5)
+                    const diff = (Math.random() > 0.5 ? 1 : -1) * (Math.floor(Math.random() * 4) + 1);
+                    wrong = correctAnswer + diff;
+                } else {
+                    // Selisih acak puluhan
+                    const diff = (Math.random() > 0.5 ? 1 : -1) * (Math.floor(Math.random() * 9) + 1) * 10;
+                    wrong = correctAnswer + diff;
+                }
+
+                // Pastikan opsi tetap positif dan tidak lebih dari 10.000
+                if (wrong > 0 && wrong <= 10000 && wrong !== correctAnswer) {
+                    choices.add(wrong);
+                }
+            }
+
+            // Acak urutan array opsi
+            return Array.from(choices).sort(() => Math.random() - 0.5);
+        }
+
+        /* ==========================================================================
+           6. ALUR PERMAINAN KUIS
+           ========================================================================== */
+        function startQuiz() {
+            playSound('click');
+            state.currentQuestionIndex = 0;
+            state.correctCount = 0;
+            state.streak = 0;
+
+            // Pindah tampilan layar
+            document.getElementById('screen-setup').classList.add('hidden');
+            document.getElementById('screen-result').classList.add('hidden');
+            document.getElementById('screen-quiz').classList.remove('hidden');
+            document.getElementById('btn-home').classList.remove('hidden');
+
+            // Atur UI khusus mode tanpa batas vs berbatas
+            const isInfinite = state.totalQuestions === Infinity;
+            document.getElementById('progress-bar-container').classList.toggle('hidden', isInfinite);
+            document.getElementById('btn-finish-infinite').classList.toggle('hidden', !isInfinite);
+
+            nextQuestion();
+        }
+
+        function nextQuestion() {
+            state.isAnswered = false;
+            state.currentQuestionIndex++;
+
+            // Cek jika sudah mencapai batas soal
+            if (state.totalQuestions !== Infinity && state.currentQuestionIndex > state.totalQuestions) {
+                endQuiz();
+                return;
+            }
+
+            // Sembunyikan banner feedback dan kertas coretan
+            const feedback = document.getElementById('feedback-banner');
+            feedback.classList.add('hidden');
+            document.getElementById('scratchpad-box').classList.add('hidden');
+            document.getElementById('scratchpad-btn-text').textContent = 'Cara Susun';
+
+            // Update header progres
+            const totalText = state.totalQuestions === Infinity ? '∞' : state.totalQuestions;
+            document.getElementById('quiz-progress').textContent = `${state.currentQuestionIndex} / ${totalText}`;
+            document.getElementById('quiz-score').textContent = `${state.correctCount} ⭐`;
+
+            if (state.totalQuestions !== Infinity) {
+                const percent = ((state.currentQuestionIndex - 1) / state.totalQuestions) * 100;
+                document.getElementById('progress-bar').style.width = `${percent}%`;
+            }
+
+            // Buat soal baru
+            generateQuestion();
+
+            // Tampilkan angka ke layar & kertas bantuan susun
+            const strNum1 = formatNumber(state.currentNum1);
+            const strNum2 = formatNumber(state.currentNum2);
+            document.getElementById('num1').textContent = strNum1;
+            document.getElementById('num2').textContent = strNum2;
+            document.getElementById('pad-num1').textContent = strNum1;
+            document.getElementById('pad-num2').textContent = strNum2;
+
+            // Render area jawaban sesuai mode
+            if (state.mode === 'choice') {
+                document.getElementById('answers-choice-container').classList.remove('hidden');
+                document.getElementById('answers-type-container').classList.add('hidden');
+                renderChoiceButtons();
+            } else {
+                document.getElementById('answers-choice-container').classList.add('hidden');
+                document.getElementById('answers-type-container').classList.remove('hidden');
+                const input = document.getElementById('type-answer-input');
+                input.value = '';
+                input.disabled = false;
+                input.classList.remove('border-emerald-500', 'bg-emerald-50', 'border-rose-500', 'bg-rose-50');
+                setTimeout(() => input.focus(), 100);
+            }
+        }
+
+        function renderChoiceButtons() {
+            const container = document.getElementById('answers-choice-container');
+            container.innerHTML = '';
+            const choices = generateChoices(state.currentAnswer);
+            const labels = ['A', 'B', 'C', 'D'];
+
+            choices.forEach((choice, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'choice-btn btn-3d p-4 rounded-2xl border-2 border-indigo-200 bg-white hover:bg-indigo-50 text-indigo-950 font-display font-bold text-xl sm:text-2xl flex items-center gap-4 transition';
+                btn.innerHTML = `
+                    <span class="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-lg font-extrabold shrink-0">${labels[idx]}</span>
+                    <span class="flex-1 text-center pr-6">${formatNumber(choice)}</span>
+                `;
+                btn.onclick = () => checkChoiceAnswer(choice, btn);
+                container.appendChild(btn);
+            });
+        }
+
+        function checkChoiceAnswer(selectedValue, btnElement) {
+            if (state.isAnswered) return;
+            state.isAnswered = true;
+
+            const isCorrect = selectedValue === state.currentAnswer;
+            const allButtons = document.querySelectorAll('.choice-btn');
+
+            allButtons.forEach(btn => {
+                btn.disabled = true;
+                const valText = btn.querySelector('span:last-child').textContent.replace(/\./g, '');
+                if (parseInt(valText) === state.currentAnswer) {
+                    btn.classList.remove('bg-white', 'border-indigo-200', 'text-indigo-950');
+                    btn.classList.add('bg-emerald-500', 'border-emerald-600', 'text-white', 'animate-pop');
+                }
+            });
+
+            if (!isCorrect) {
+                btnElement.classList.remove('bg-white', 'border-indigo-200', 'text-indigo-950');
+                btnElement.classList.add('bg-rose-500', 'border-rose-600', 'text-white', 'animate-shake');
+            }
+
+            processAnswerResult(isCorrect);
+        }
+
+        function formatInputNumber(input) {
+            // Hapus karakter selain angka lalu format dengan titik ribuan
+            let raw = input.value.replace(/\D/g, '');
+            if (raw) {
+                input.value = formatNumber(parseInt(raw));
+            }
+        }
+
+        function checkTypedAnswer() {
+            if (state.isAnswered) return;
+            const input = document.getElementById('type-answer-input');
+            const rawVal = input.value.replace(/\./g, '');
+            if (!rawVal) return;
+
+            state.isAnswered = true;
+            input.disabled = true;
+
+            const userAnswer = parseInt(rawVal);
+            const isCorrect = userAnswer === state.currentAnswer;
+
+            if (isCorrect) {
+                input.classList.add('border-emerald-500', 'bg-emerald-50', 'animate-pop');
+            } else {
+                input.classList.add('border-rose-500', 'bg-rose-50', 'animate-shake');
+            }
+
+            processAnswerResult(isCorrect);
+        }
+
+        function processAnswerResult(isCorrect) {
+            const feedback = document.getElementById('feedback-banner');
+            feedback.classList.remove('hidden', 'bg-emerald-100', 'text-emerald-800', 'bg-rose-100', 'text-rose-800');
+
+            if (isCorrect) {
+                playSound('correct');
+                state.correctCount++;
+                state.streak++;
+                const msg = praiseMessages[Math.floor(Math.random() * praiseMessages.length)];
+                feedback.textContent = msg;
+                feedback.classList.add('bg-emerald-100', 'text-emerald-800');
+            } else {
+                playSound('wrong');
+                state.streak = 0;
+                feedback.innerHTML = `Belum tepat! Jawaban yang benar adalah <span class="underline font-extrabold">${formatNumber(state.currentAnswer)}</span> 💪`;
+                feedback.classList.add('bg-rose-100', 'text-rose-800');
+            }
+
+            // Update Skor & Streak Badge
+            document.getElementById('quiz-score').textContent = `${state.correctCount} ⭐`;
+            const streakBadge = document.getElementById('streak-badge');
+            if (state.streak >= 3) {
+                streakBadge.classList.remove('hidden');
+                streakBadge.classList.add('flex');
+                document.getElementById('streak-count').textContent = `${state.streak}x Beruntun!`;
+            } else {
+                streakBadge.classList.add('hidden');
+                streakBadge.classList.remove('flex');
+            }
+
+            // Lanjut ke soal berikutnya secara otomatis
+            const delay = isCorrect ? 1300 : 2300;
+            setTimeout(() => {
+                nextQuestion();
+            }, delay);
+        }
+
+        function toggleScratchpad() {
+            playSound('click');
+            const box = document.getElementById('scratchpad-box');
+            const btnText = document.getElementById('scratchpad-btn-text');
+            const isHidden = box.classList.contains('hidden');
+            box.classList.toggle('hidden', !isHidden);
+            btnText.textContent = isHidden ? 'Tutup Bantuan' : 'Cara Susun';
+        }
+
+        /* ==========================================================================
+           7. LAYAR HASIL & NAVIGASI MENU
+           ========================================================================== */
+        function endQuiz() {
+            playSound('win');
+            document.getElementById('screen-quiz').classList.add('hidden');
+            document.getElementById('btn-home').classList.add('hidden');
+            document.getElementById('screen-result').classList.remove('hidden');
+
+            // Hitung total soal yang sudah dikerjakan
+            const answeredTotal = state.totalQuestions === Infinity 
+                ? (state.isAnswered ? state.currentQuestionIndex : state.currentQuestionIndex - 1)
+                : state.totalQuestions;
+
+            const safeTotal = Math.max(1, answeredTotal);
+            const finalScore = Math.round((state.correctCount / safeTotal) * 100);
+
+            document.getElementById('stat-total').textContent = answeredTotal;
+            document.getElementById('stat-correct').textContent = state.correctCount;
+            document.getElementById('stat-score').textContent = finalScore;
+
+            const emojiEl = document.getElementById('result-emoji');
+            const titleEl = document.getElementById('result-title');
+            const subEl = document.getElementById('result-subtitle');
+
+            if (finalScore >= 80) {
+                emojiEl.textContent = '🏆';
+                titleEl.textContent = 'Juara Matematika!';
+                subEl.textContent = 'Keren banget! Kamu sudah sangat mahir penjumlahan hingga 10.000!';
+                launchConfetti();
+            } else if (finalScore >= 60) {
+                emojiEl.textContent = '🌟';
+                titleEl.textContent = 'Bagus Sekali!';
+                subEl.textContent = 'Terus berlatih sedikit lagi pasti dapat nilai 100!';
+                launchConfetti();
+            } else {
+                emojiEl.textContent = '🚀';
+                titleEl.textContent = 'Tetap Semangat!';
+                subEl.textContent = 'Jangan menyerah ya, coba gunakan fitur "Cara Susun" untuk membantu menghitung!';
+            }
+        }
+
+        function restartSameSettings() {
+            startQuiz();
+        }
+
+        function confirmExit() {
+            playSound('click');
+            document.getElementById('exit-modal').classList.remove('hidden');
+        }
+
+        function closeExitModal() {
+            playSound('click');
+            document.getElementById('exit-modal').classList.add('hidden');
+        }
+
+        function goToSetup() {
+            playSound('click');
+            document.getElementById('exit-modal').classList.add('hidden');
+            document.getElementById('screen-quiz').classList.add('hidden');
+            document.getElementById('screen-result').classList.add('hidden');
+            document.getElementById('btn-home').classList.add('hidden');
+            document.getElementById('screen-setup').classList.remove('hidden');
+        }
+
+        // Inisialisasi bintang latar saat halaman dimuat
+        window.onload = function() {
+            createStars();
+        };
+    </script>
+</body>
+</html>
